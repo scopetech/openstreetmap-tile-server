@@ -178,5 +178,5 @@ jobs:
         cache-from: |
           type=gha,scope=${{ github.workflow }}:linux/amd64
           type=gha,scope=${{ github.workflow }}:linux/arm64/v8
-        build-args:
-          - PG_VERSION="14"
+        build-args: |
+          PG_VERSION="14"
