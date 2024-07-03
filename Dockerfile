@@ -2,13 +2,13 @@ ARG UBUNTU_VERSION="24.04"
 
 FROM ubuntu:${UBUNTU_VERSION} AS compiler-common
 ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
-ARG PG_VERSION="15"
-ARG CARTO_VERSION="v5.4.0"
+ARG PG_VERSION="16"
+ARG CARTO_VERSION="v5.8.0"
 ARG NPM_CARTO_VERSION="1.2.0"
-ARG LEAFLET_VERSION="v1.8.0"
+ARG LEAFLET_VERSION="v1.9.4"
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -44,6 +44,48 @@ RUN mkdir -p /home/renderer/src \
 
 ###########################################################################################################
 
+FROM compiler-common AS compiler-osm2pgsql
+
+ARG OSM2PGSQL_VERSION=1.11.0
+
+RUN apt-get install -y --no-install-recommends \
+  make \
+  cmake \
+  g++ \
+  libboost-dev \
+  libexpat1-dev \
+  zlib1g-dev \
+  libpotrace-dev \
+  libopencv-dev \
+  libbz2-dev \
+  libpq-dev \
+  libproj-dev \
+  lua5.3 \
+  liblua5.3-dev \
+  libluajit-5.1-dev \
+  pandoc \
+  nlohmann-json3-dev \
+  pyosmium \
+  libboost-all-dev
+
+RUN mkdir -p /tmp/src \
+  && cd /tmp/src \
+  && git clone --branch ${OSM2PGSQL_VERSION} --single-branch https://github.com/osm2pgsql-dev/osm2pgsql.git \
+  && cd osm2pgsql \
+  && rm -rf .git
+
+RUN cd /tmp/src/osm2pgsql \
+  && mkdir build \
+  && cd build \
+  && cmake -D WITH_LUAJIT=ON .. \
+  && make -j `nproc` && make install
+
+RUN which osm2pgsql \
+  && osm2pgsql --version \
+  && ldd `which osm2pgsql`
+
+###########################################################################################################
+
 FROM compiler-common AS final
 
 # Based on
@@ -53,7 +95,6 @@ ENV AUTOVACUUM=on
 ENV UPDATES=disabled
 ENV REPLICATION_URL=https://planet.openstreetmap.org/replication/hour/
 ENV MAX_INTERVAL_SECONDS=3600
-#ENV PG_VERSION 15
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
@@ -71,10 +112,11 @@ RUN apt-get update \
   gnupg2 \
   gdal-bin \
   liblua5.3-dev \
+  libproj-dev \
+  libluajit-5.1-2 \
   lua5.3 \
   mapnik-utils \
   npm \
-  osm2pgsql \
   osmium-tool \
   osmosis \
   postgresql-$PG_VERSION \
@@ -97,6 +139,10 @@ RUN apt-get update \
   && apt-get autoremove --yes \
   && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
+COPY --from=compiler-osm2pgsql /usr/local/bin/osm2pgsql /usr/local/bin/osm2pgsql
+COPY --from=compiler-osm2pgsql /lib/x86_64-linux-gnu/libboost_filesystem.so.1.83.0 /lib/x86_64-linux-gnu/libboost_filesystem.so.1.83.0
+RUN osm2pgsql --version
+
 RUN adduser --disabled-password --gecos "" renderer
 
 # Get Noto Emoji Regular font, despite it being deprecated by Google
@@ -104,13 +150,6 @@ RUN wget https://github.com/googlefonts/noto-emoji/blob/9a5261d871451f9b5183c934
 
 # For some reason this one is missing in the default packages
 RUN wget https://github.com/stamen/terrain-classic/blob/master/fonts/unifont-Medium.ttf?raw=true --content-disposition -P /usr/share/fonts/
-
-# NOTE: those packages are installed with apt-get install
-# Install python libraries
-#RUN pip3 install \
-# requests \
-# osmium \
-# pyyaml
 
 # Install carto for stylesheet
 RUN npm install -g carto@$NPM_CARTO_VERSION

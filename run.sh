@@ -130,6 +130,9 @@ if [ "$1" == "import" ]; then
 fi
 
 if [ "$1" == "run" ]; then
+    # set env variables which will be used from the crontab tasks
+    printenv > /etc/environment
+
     # Clean /tmp
     rm -rf /tmp/*
 
