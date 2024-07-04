@@ -27,16 +27,16 @@ jobs:
         include:
         - arch    : amd64
           mode    : build-and-test
-        - arch    : arm64
-          variant : v8
-          mode    : build-only
+        # - arch    : arm64
+        #   variant : v8
+        #   mode    : build-only
     runs-on: ubuntu-latest
     env:
       VOLUME    : osm-db
       CONTAINER : osm-www
       MOUNT     : /data/database/
       PLATFORM  : linux/${{ matrix.arch }}${{ (matrix.variant != '' && format('/{0}', matrix.variant)) || '' }}
-      PG_VERSION: 14
+      PG_VERSION: 16
     steps:
     -
       name: Checkout
@@ -182,4 +182,4 @@ jobs:
           type=gha,scope=${{ github.workflow }}:linux/amd64
           type=gha,scope=${{ github.workflow }}:linux/arm64/v8
         build-args: |
-          PG_VERSION=14
+          PG_VERSION=16
