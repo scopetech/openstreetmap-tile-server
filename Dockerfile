@@ -164,13 +164,15 @@ RUN ln -sf /dev/stdout /var/log/apache2/access.log \
 
 # leaflet
 COPY leaflet-demo.html /var/www/html/index.html
+COPY favicon.ico /var/www/html/favicon.ico
+
 RUN cd /var/www/html/ \
   && wget https://github.com/Leaflet/Leaflet/releases/download/$LEAFLET_VERSION/leaflet.zip \
   && unzip leaflet.zip \
   && rm leaflet.zip
 
 # Icon
-RUN wget -O /var/www/html/favicon.ico https://www.openstreetmap.org/favicon.ico
+# RUN wget -O /var/www/html/favicon.ico https://www.openstreetmap.org/favicon.ico
 
 # Copy update scripts
 COPY openstreetmap-tiles-update-expire.sh /usr/bin/
